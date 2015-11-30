@@ -1,0 +1,5 @@
+<resources>
+	<string name="app_name">RxService</string>
+	<string name="checkbox_service_alive_flag">Leave the service alive!</string>
+	<string name="button_connect_service">Connect or start Service</string>
+</resources>
