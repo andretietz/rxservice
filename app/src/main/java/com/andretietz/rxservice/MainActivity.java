@@ -24,12 +24,7 @@ public class MainActivity extends AppCompatActivity {
 		manager = new ServiceManager(this);
 
 		binding.buttonConnect.setOnClickListener(view -> {
-			subscription = manager.receiveCounterFromService(binding.checkboxLeaveAlive.isChecked())
-					.subscribeOn(Schedulers.io())
-					.observeOn(AndroidSchedulers.mainThread())
-					.subscribe(pid -> {
-						binding.textUpdatable.setText(String.format("PID: %d", pid));
-					});
+			listenForUpdates();
 		});
 	}
 
@@ -38,5 +33,22 @@ public class MainActivity extends AppCompatActivity {
 		super.onPause();
 		if(subscription != null)
 			subscription.unsubscribe();
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		if(CounterService.isRunning(this)) {
+			listenForUpdates();
+		}
+	}
+
+	private void listenForUpdates() {
+		subscription = manager.receiveCounterFromService(binding.checkboxLeaveAlive.isChecked())
+				.subscribeOn(Schedulers.io())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe(pid -> {
+					binding.textUpdatable.setText(String.format("Counter: %d", pid));
+				});
 	}
 }

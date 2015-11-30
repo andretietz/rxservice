@@ -9,8 +9,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import rx.Observable;
-import rx.functions.Action0;
-import rx.observers.Subscribers;
+import rx.Subscriber;
 import rx.subjects.BehaviorSubject;
 import rx.subscriptions.Subscriptions;
 
@@ -33,14 +32,32 @@ public class ServiceManager {
 	public Observable<Long> receiveCounterFromService(boolean stayAlive) {
 		return startService(stayAlive)
 				.flatMap(started -> connectService())
-				.map(service -> {
-					try {
-						return service.getPID();
-					} catch (RemoteException e) {
-						throw new RuntimeException(e);
-					}
-				});
+				.flatMap(this::counterCallback);
+	}
 
+	public Observable<Long> counterCallback(ICounterService service) {
+		return Observable.create(new Observable.OnSubscribe<Long>() {
+			@Override
+			public void call(Subscriber<? super Long> subscriber) {
+				subscriber.add(Subscriptions.create(() -> {
+					try {
+						service.unregisterCallback();
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
+				}));
+				try {
+					service.registerCallback(new ICounterServiceCallback.Stub() {
+						@Override
+						public void onCounterEvent(long count) throws RemoteException {
+							subscriber.onNext(count);
+						}
+					});
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	private Observable<ICounterService> connectService() {
@@ -50,6 +67,7 @@ public class ServiceManager {
 					subscriber.add(Subscriptions.create(() -> {
 						Log.d(TAG, "disconnecting service...");
 						context.unbindService(serviceConnection);
+						serviceConnection = null;
 					}));
 					serviceConnection = getServiceConnection();
 					Log.d(TAG, "connecting service...");
